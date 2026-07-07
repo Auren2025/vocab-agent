@@ -1,0 +1,9 @@
+{
+  "tasks": {
+    "add": "deno run --allow-read=./data --allow-write=./data scripts/vocab.ts add",
+    "quiz": "deno run --allow-read=./data --allow-write=./data scripts/vocab.ts quiz",
+    "answer": "deno run --allow-read=./data --allow-write=./data scripts/vocab.ts answer",
+    "list": "deno run --allow-read=./data --allow-write=./data scripts/vocab.ts list",
+    "lookup": "deno run --allow-read=./data --allow-write=./data scripts/vocab.ts lookup"
+  }
+}
