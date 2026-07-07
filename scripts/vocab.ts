@@ -274,6 +274,59 @@ function lookupWord(word: string | undefined) {
   output({ ok: true, word: entry.word, translation: entry.translation, pos: entry.pos });
 }
 
+function updateWord(word: string | undefined, meaning: string | undefined) {
+  if (!word || !meaning) {
+    throw new Error('Usage: deno task update <word> "<meaning>"');
+  }
+
+  const displayWord = word.trim();
+  const normalizedMeaning = meaning.trim();
+
+  if (!normalizedMeaning) {
+    throw new Error("meaning cannot be empty.");
+  }
+
+  const db = openDb();
+
+  const existing = db
+    .prepare(
+      `
+      SELECT id, word, meaning, score, createdAt
+      FROM vocabulary_words
+      WHERE LOWER(word) = LOWER(?)
+    `,
+    )
+    .get(displayWord) as VocabWord | undefined;
+
+  if (!existing) {
+    throw new Error(`word not found: ${displayWord}`);
+  }
+
+  db.prepare(
+    `
+    UPDATE vocabulary_words
+    SET meaning = ?
+    WHERE id = ?
+  `,
+  ).run(normalizedMeaning, existing.id);
+
+  const updated = db
+    .prepare(
+      `
+      SELECT id, word, meaning, score, createdAt
+      FROM vocabulary_words
+      WHERE id = ?
+    `,
+    )
+    .get(existing.id) as VocabWord;
+
+  output({
+    ok: true,
+    action: "updated",
+    word: updated,
+  });
+}
+
 function listWords() {
   const db = openDb();
 
@@ -316,6 +369,11 @@ function main() {
       return;
     }
 
+    if (command === "update") {
+      updateWord(args[0], args.slice(1).join(" "));
+      return;
+    }
+
     if (command === "list") {
       listWords();
       return;
@@ -331,6 +389,7 @@ function main() {
       error: "Unknown command.",
       commands: [
         'add <word> "<meaning>"',
+        'update <word> "<meaning>"',
         "quiz --limit 30",
         "answer <id> correct|wrong",
         "list",
