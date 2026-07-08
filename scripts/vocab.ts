@@ -4,13 +4,39 @@ import { dirname } from "node:path";
 
 const DB_PATH = "./data/vocab.db";
 
+const VOCAB_TYPES = ["word", "chunk"] as const;
+type VocabType = typeof VOCAB_TYPES[number];
+
 type VocabWord = {
   id: string;
   word: string;
+  type: VocabType;
   meaning: string;
   score: number;
   createdAt: string;
 };
+
+function inferVocabType(word: string): VocabType {
+  return word.includes(" ") ? "chunk" : "word";
+}
+
+function migrateDb(db: DatabaseSync) {
+  const columns = db
+    .prepare("PRAGMA table_info(vocabulary_words)")
+    .all() as Array<{ name: string }>;
+
+  if (!columns.some((column) => column.name === "type")) {
+    db.exec(`
+      ALTER TABLE vocabulary_words
+      ADD COLUMN type TEXT NOT NULL DEFAULT 'word'
+      CHECK (type IN ('word', 'chunk'));
+
+      UPDATE vocabulary_words
+      SET type = 'chunk'
+      WHERE INSTR(TRIM(word), ' ') > 0;
+    `);
+  }
+}
 
 function openDb() {
   mkdirSync(dirname(DB_PATH), { recursive: true });
@@ -20,6 +46,7 @@ function openDb() {
     CREATE TABLE IF NOT EXISTS vocabulary_words (
       id TEXT PRIMARY KEY,
       word TEXT NOT NULL UNIQUE,
+      type TEXT NOT NULL DEFAULT 'word' CHECK (type IN ('word', 'chunk')),
       meaning TEXT NOT NULL,
       score INTEGER NOT NULL DEFAULT 0,
       createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -27,6 +54,13 @@ function openDb() {
 
     CREATE INDEX IF NOT EXISTS idx_vocabulary_score_created
     ON vocabulary_words(score, createdAt);
+  `);
+
+  migrateDb(db);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_vocabulary_type_score_created
+    ON vocabulary_words(type, score, createdAt);
   `);
 
   return db;
@@ -62,7 +96,7 @@ function addWord(word: string | undefined, meaning: string | undefined) {
   const existing = db
     .prepare(
       `
-      SELECT id, word, meaning, score, createdAt
+      SELECT id, word, type, meaning, score, createdAt
       FROM vocabulary_words
       WHERE LOWER(word) = LOWER(?)
     `,
@@ -79,18 +113,19 @@ function addWord(word: string | undefined, meaning: string | undefined) {
   }
 
   const id = createId();
+  const type = inferVocabType(displayWord);
 
   db.prepare(
     `
-    INSERT INTO vocabulary_words (id, word, meaning, score)
-    VALUES (?, ?, ?, 0)
+    INSERT INTO vocabulary_words (id, word, type, meaning, score)
+    VALUES (?, ?, ?, ?, 0)
   `,
-  ).run(id, displayWord, normalizedMeaning);
+  ).run(id, displayWord, type, normalizedMeaning);
 
   const created = db
     .prepare(
       `
-      SELECT id, word, meaning, score, createdAt
+      SELECT id, word, type, meaning, score, createdAt
       FROM vocabulary_words
       WHERE id = ?
     `,
@@ -105,7 +140,8 @@ function addWord(word: string | undefined, meaning: string | undefined) {
 }
 
 function makeHint(word: string): string {
-  return word.split(" ").map((part) => part[0] + "•".repeat(part.length - 1)).join(" ");
+  return word.split(" ").map((part) => part[0] + "•".repeat(part.length - 1))
+    .join(" ");
 }
 
 function getQuiz(limit = 30) {
@@ -114,7 +150,7 @@ function getQuiz(limit = 30) {
   const learning = db
     .prepare(
       `
-    SELECT id, word, meaning, score, createdAt
+    SELECT id, word, type, meaning, score, createdAt
     FROM vocabulary_words
     WHERE score BETWEEN 0 AND 5
     ORDER BY score ASC, createdAt ASC
@@ -126,7 +162,7 @@ function getQuiz(limit = 30) {
   const mastering = db
     .prepare(
       `
-    SELECT id, word, meaning, score, createdAt
+    SELECT id, word, type, meaning, score, createdAt
     FROM vocabulary_words
     WHERE score BETWEEN 6 AND 10
     ORDER BY score ASC, createdAt ASC
@@ -138,7 +174,7 @@ function getQuiz(limit = 30) {
   const skilled = db
     .prepare(
       `
-    SELECT id, word, meaning, score, createdAt
+    SELECT id, word, type, meaning, score, createdAt
     FROM vocabulary_words
     WHERE score BETWEEN 11 AND 20
     ORDER BY score ASC, createdAt ASC
@@ -150,7 +186,7 @@ function getQuiz(limit = 30) {
   const expert = db
     .prepare(
       `
-    SELECT id, word, meaning, score, createdAt
+    SELECT id, word, type, meaning, score, createdAt
     FROM vocabulary_words
     WHERE score >= 21
     ORDER BY score ASC, createdAt ASC
@@ -167,7 +203,7 @@ function getQuiz(limit = 30) {
   const items = raw.map((item) => {
     const meaningOneLine = item.meaning.replace(/\n/g, "；");
     const hint = makeHint(item.word);
-    const isPhrase = item.word.includes(" ");
+    const isPhrase = item.type === "chunk";
     const displayLine = isPhrase
       ? `${meaningOneLine} (${hint}) [短语]`
       : `${meaningOneLine} (${hint})`;
@@ -202,7 +238,7 @@ function answerWord(id: string | undefined, result: string | undefined) {
   const word = db
     .prepare(
       `
-      SELECT id, word, meaning, score, createdAt
+      SELECT id, word, type, meaning, score, createdAt
       FROM vocabulary_words
       WHERE id = ?
     `,
@@ -251,7 +287,7 @@ type DictEntry = {
 
 function lookupWord(word: string | undefined) {
   if (!word) {
-    throw new Error('Usage: deno task lookup <word>');
+    throw new Error("Usage: deno task lookup <word>");
   }
 
   const db = openDict();
@@ -271,7 +307,12 @@ function lookupWord(word: string | undefined) {
     return;
   }
 
-  output({ ok: true, word: entry.word, translation: entry.translation, pos: entry.pos });
+  output({
+    ok: true,
+    word: entry.word,
+    translation: entry.translation,
+    pos: entry.pos,
+  });
 }
 
 function updateWord(word: string | undefined, meaning: string | undefined) {
@@ -291,7 +332,7 @@ function updateWord(word: string | undefined, meaning: string | undefined) {
   const existing = db
     .prepare(
       `
-      SELECT id, word, meaning, score, createdAt
+      SELECT id, word, type, meaning, score, createdAt
       FROM vocabulary_words
       WHERE LOWER(word) = LOWER(?)
     `,
@@ -313,7 +354,7 @@ function updateWord(word: string | undefined, meaning: string | undefined) {
   const updated = db
     .prepare(
       `
-      SELECT id, word, meaning, score, createdAt
+      SELECT id, word, type, meaning, score, createdAt
       FROM vocabulary_words
       WHERE id = ?
     `,
@@ -333,7 +374,7 @@ function listWords() {
   const words = db
     .prepare(
       `
-    SELECT id, word, meaning, score, createdAt
+    SELECT id, word, type, meaning, score, createdAt
     FROM vocabulary_words
     ORDER BY score ASC, createdAt ASC
     LIMIT 100
