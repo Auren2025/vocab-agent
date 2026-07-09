@@ -6,7 +6,7 @@ description: >
   英文单词存入个人词汇表的请求时,都应使用此技能。如果用户表示想修改某个已有
   单词的释义（例如"改一下 run 的意思"、"更新一下 build"）,也应触发此技能。
   即使用户没有明确说"添加"或"vocab",只要意图是把单词存进数据库就触发。
-  仅使用 deno.json 中定义的 task 操作词库,不直接调用脚本或数据库。
+  仅使用 deno.jsonc 中定义的 task 操作词库,不直接调用脚本或数据库。
 ---
 
 # 添加词汇
@@ -41,7 +41,7 @@ n. 跑步；一段连续时间"
 | `action: "updated"` | 修改成功(已有词) |
 | `ok: false` | 失败,如实报告错误,不要谎称成功 |
 
-**只使用 `deno.json` 中定义的 task 操作词库**。不要直接调用 `scripts/vocab.ts`,
+**只使用 `deno.jsonc` 中定义的 task 操作词库**。不要直接调用 `scripts/vocab.ts`,
 也不要用 Python/SQLite 处理正常的增/查/改流程。
 
 ## meaning 生成规则

@@ -24,9 +24,9 @@ deno task answer <id> correct
 deno task answer <id> wrong
 ```
 
-quzi 返回 JSON 包含 `displayBlock`（出题文案）和 `answers`（评分对照表）。
+quiz 返回 JSON 包含 `displayBlock`（出题文案）和 `answers`（评分对照表）。
 
-**只使用 `deno.json` 中定义的 task 操作词库**。不要直接调用 `scripts/vocab.ts`,
+**只使用 `deno.jsonc` 中定义的 task 操作词库**。不要直接调用 `scripts/vocab.ts`,
 也不要用 Python/SQLite 处理正常的测试/列表/查询/评分流程。
 
 score 只能通过 `answer` 更新:

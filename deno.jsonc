@@ -1,0 +1,21 @@
+{
+  "tasks": {
+    "vocab": "deno run --allow-read=./data --allow-write=./data scripts/vocab.ts",
+
+    "add": "deno task vocab add",
+    "update": "deno task vocab update",
+    "quiz": "deno task vocab quiz",
+    "answer": "deno task vocab answer",
+    "list": "deno task vocab list",
+    "lookup": "deno task vocab lookup",
+
+    "check": "deno check scripts/vocab.ts",
+    "fmt": "deno fmt",
+    "lint": "deno lint"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true
+  }
+}
