@@ -371,14 +371,17 @@ function updateWord(word: string | undefined, meaning: string | undefined) {
 function listWords() {
   const db = openDb();
 
-  const { count } = db
+  const { total, wordCount, chunkCount } = db
     .prepare(
       `
-      SELECT COUNT(*) AS count
+      SELECT
+        COUNT(*) AS total,
+        COALESCE(SUM(CASE WHEN type = 'word' THEN 1 ELSE 0 END), 0) AS wordCount,
+        COALESCE(SUM(CASE WHEN type = 'chunk' THEN 1 ELSE 0 END), 0) AS chunkCount
       FROM vocabulary_words
     `,
     )
-    .get() as { count: number };
+    .get() as { total: number; wordCount: number; chunkCount: number };
 
   const words = db
     .prepare(
@@ -392,7 +395,12 @@ function listWords() {
 
   output({
     ok: true,
-    count,
+    summary: `一共${total}个, 其中单词${wordCount}个, 短语${chunkCount}个`,
+    count: total,
+    typeCounts: {
+      word: wordCount,
+      chunk: chunkCount,
+    },
     items: words,
   });
 }
