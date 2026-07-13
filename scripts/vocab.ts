@@ -371,20 +371,28 @@ function updateWord(word: string | undefined, meaning: string | undefined) {
 function listWords() {
   const db = openDb();
 
+  const { count } = db
+    .prepare(
+      `
+      SELECT COUNT(*) AS count
+      FROM vocabulary_words
+    `,
+    )
+    .get() as { count: number };
+
   const words = db
     .prepare(
       `
     SELECT id, word, type, meaning, score, createdAt
     FROM vocabulary_words
     ORDER BY score ASC, createdAt ASC
-    LIMIT 100
   `,
     )
     .all() as VocabWord[];
 
   output({
     ok: true,
-    count: words.length,
+    count,
     items: words,
   });
 }
