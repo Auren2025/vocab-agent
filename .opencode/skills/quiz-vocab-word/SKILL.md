@@ -19,9 +19,11 @@ description: >
 在项目根目录运行:
 
 ```bash
-deno task quiz --limit 5
-deno task answer <id> correct
-deno task answer <id> wrong
+deno task quiz --limit 5 --total <用户要求的总数>
+deno task quiz --limit 5 --session <sessionId>
+deno task answer <id> correct --session <sessionId> --input "<用户答案>"
+deno task answer <id> wrong --session <sessionId> --input "<用户答案>"
+deno task quiz-result --session <sessionId>
 ```
 
 quiz 返回 JSON 包含 `displayBlock`（出题文案）和 `answers`（评分对照表）。
@@ -38,16 +40,26 @@ score 只能通过 `answer` 更新:
 
 ## 流程
 
-1. 运行 `deno task quiz --limit 5`。
-2. 如果没有返回项,告知用户词库为空,停止。
-3. 有数据时展示 5 题;不足 5 个就展示实际返回的全部。
-4. **直接输出 `displayBlock` 字段的内容**，一字不改。这是出题的唯一来源，不要自己构建格式。
-5. 记住 `answers` 数组中的 `id -> word` 映射,用于后续评分。
-6. 等待用户回答完所有展示的题目。
-7. 按**最近一次展示的题目**评分,不要用新一轮 quiz 或旧的缓存数据评分。
-8. 如果没有最近一次展示的题目(例如上下文丢失),不要猜答案;重新出题。
-9. **强制操作（不可省略）**：对每一道展示过的题目，逐一执行 `deno task answer <id> correct|wrong`。少调用一次就视为流程错误。
-10. 返回简洁的批改结果和 score 变化。
+1. 判断用户要求的总数 `N`。如果用户没有指定,默认 `N = 5`。
+2. 第一轮运行 `deno task quiz --limit 5 --total N`,并记住返回的
+   `sessionId` 和实际的 `totalCount`。如果词库不足 N 个,以 `totalCount` 为准并告知用户。
+3. 后续轮次必须运行 `deno task quiz --limit 5 --session <sessionId>`。
+   不得重新运行不带 session 的 quiz,也不得重新生成测试集。
+4. 测试 session 开始时已经固定全部词条。后续轮次只按固定顺序取下一批,
+   即使 score 改变,也不能让已测试或答错的词再次出现。
+5. 有数据时展示 5 题;最后一轮不足 5 个就展示实际返回的全部。
+6. **直接输出 `displayBlock` 字段的内容**，一字不改。这是出题的唯一来源，不要自己构建格式。
+7. 记住最近一轮 `answers` 中的 `id -> word` 映射,等待用户回答这一轮全部题目。
+8. 收到答案后,按最近展示的题目逐题执行带 `--session` 和 `--input` 的 `deno task answer`。
+   `--input` 必须保存用户的原始答案,每道题必须执行且不能重复执行。
+9. 非最后一轮只回复本轮答对数、答错数和测试进度,例如：
+   `本轮答对 4 个，答错 1 个。进度：10 / 20。`
+   不要显示错题、正确答案或 score 变化。
+10. 如果本轮返回 `allShown: false`,评分完成后立即使用同一个 session 开始下一轮,
+    不要等待用户再次说“继续”。
+11. 最后一轮评分完成后运行 `deno task quiz-result --session <sessionId>`。
+12. 只在最后一次性展示完整结论：总数、答对数、答错数、正确率，以及所有错题的
+    用户答案和正确写法。准确率必须使用 `quiz-result` 返回的值,不要自行计算。
 
 ## 出题格式
 
@@ -76,15 +88,25 @@ score 只能通过 `answer` 更新:
 
 以下判 `wrong`:中文答案、无关英文单词、空白、"不知道/忘了/不会"、跳过的题目。
 
-## 回复格式
+## 每轮回复格式（非最后一轮）
 
 ```txt
-本轮结果：
+本轮答对 4 个，答错 1 个。
+进度：10 / 20。
+```
 
-1. ✅ apple — n. 苹果；苹果树 — score: 0 → 1
-2. ❌ book（你写的是 back）— n. 书；本子；v. 预订 — score: 0 → 0
+不要在中途显示错题和正确写法。
 
-共 5 个，答对 4 个，答错 1 个。
+## 最终回复格式
+
+```txt
+测试完成：
+
+共 20 个，答对 16 个，答错 4 个，正确率 80%。
+
+错题：
+1. 你的答案：back；正确写法：book
+2. 你的答案：aple；正确写法：apple
 ```
 
 ## 禁止事项
@@ -97,7 +119,9 @@ score 只能通过 `answer` 更新:
 - 不要直接调用项目脚本;只能通过 `deno task ...`。
 - 不要用 Python 读取/解析/评分/更新词库数据。
 - 不要跳过 `deno task answer`。
+- 不要在非最后一轮展示错题详情或正确答案。
+- 不要在下一轮重新选择词条。
 - 命令执行失败时不要编造结果。
 - 必须原样输出 `displayBlock`，不得自行构建格式、不得省略提示。
 - 唯一允许的出题输出来源是 `displayBlock` 字段。
-- 返回结果前必须检查：本题数量 === 调用了 answer 的次数。不匹配则说明有遗漏，补全后再返回。
+- 返回每轮结果前必须检查：本轮题目数量 === 调用了 answer 的次数。不匹配则说明有遗漏，补全后再返回。

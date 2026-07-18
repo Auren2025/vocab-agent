@@ -6,6 +6,7 @@
     "update": "deno task vocab update",
     "quiz": "deno task vocab quiz",
     "answer": "deno task vocab answer",
+    "quiz-result": "deno task vocab quiz-result",
     "list": "deno task vocab list",
     "lookup": "deno task vocab lookup",
 
