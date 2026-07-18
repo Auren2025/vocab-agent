@@ -4,8 +4,11 @@
 
     "add": "deno task vocab add",
     "update": "deno task vocab update",
+    // quiz 用法: --limit 5 --total N (新建) | --limit 5 --session <id> (继续)
     "quiz": "deno task vocab quiz",
+    // answer 用法: <id> correct|wrong --session <id> --input "<答案>"
     "answer": "deno task vocab answer",
+    // quiz-result 用法: --session <id>
     "quiz-result": "deno task vocab quiz-result",
     "list": "deno task vocab list",
     "lookup": "deno task vocab lookup",

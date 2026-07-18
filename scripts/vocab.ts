@@ -363,8 +363,9 @@ function getQuiz(limit = 5, total?: number, sessionId?: string) {
   const db = openDb();
 
   if (total === undefined && !sessionId) {
-    formatQuiz(selectQuizWords(db, limit));
-    return;
+    throw new Error(
+      "Use --total to start a quiz session, or --session to continue an existing session.",
+    );
   }
 
   const session = sessionId
@@ -427,7 +428,9 @@ function answerWord(
   userAnswer?: string,
 ) {
   if (!id || !result) {
-    throw new Error("Usage: deno task answer <id> correct|wrong");
+    throw new Error(
+      'Usage: deno task answer <id> correct|wrong --session <sessionId> --input "<答案>"',
+    );
   }
 
   if (result !== "correct" && result !== "wrong") {
@@ -543,42 +546,9 @@ function answerWord(
     return;
   }
 
-  const word = db
-    .prepare(
-      `
-      SELECT id, word, type, meaning, score, createdAt
-      FROM vocabulary_words
-      WHERE id = ?
-    `,
-    )
-    .get(id) as VocabWord | undefined;
-
-  if (!word) {
-    throw new Error(`word not found: ${id}`);
-  }
-
-  const oldScore = word.score;
-  const newScore = result === "correct"
-    ? oldScore + 1
-    : Math.max(0, oldScore - 2);
-
-  db.prepare(
-    `
-    UPDATE vocabulary_words
-    SET score = ?
-    WHERE id = ?
-  `,
-  ).run(newScore, id);
-
-  output({
-    ok: true,
-    id,
-    word: word.word,
-    meaning: word.meaning,
-    result,
-    oldScore,
-    newScore,
-  });
+  throw new Error(
+    "Answering without a session is no longer supported. Use --session <sessionId>.",
+  );
 }
 
 function getQuizResult(sessionId: string | undefined) {

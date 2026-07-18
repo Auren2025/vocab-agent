@@ -1,11 +1,14 @@
 ---
 name: quiz-vocab-word
 description: >
-  当用户想要复习、测试、背单词、抽查词汇、继续练习词汇时使用此技能,
-  从本地词库出题——即使用户只是说"测试一下"、"背几个单词"、"继续测"、
-  "quiz me"这类模糊说法,只要意图是复习词汇,也应触发。每道中文释义后
-  必须附加首字母提示 (a••••) 和短语标记 [短语]，不得省略。展示中文释义,
-  让用户写出对应英文单词,每轮测试 5 个,并根据答题结果更新 score。
+  当用户想要复习、测试、背单词时触发此技能。使用 session 机制进行多轮测试：
+  首轮运行 `deno task quiz --limit 5 --total N`（N 为用户要求的总数），
+  后续轮次使用 `--session <sessionId>` 继续，不得重新生成测试集。
+  逐题用 `deno task answer <id> correct|wrong --session <sessionId> --input "<答案>"` 评分，
+  最后一轮完成后运行 `deno task quiz-result --session <sessionId>` 输出汇总。
+  每道中文释义后必须附加首字母提示 (a••••) 和短语标记 [短语]，不得省略。
+  展示中文释义让用户写出对应英文单词，每轮最多 5 个。非最后一轮只回复进度，
+  最后一轮一次性展示全部错题。score：correct +1，wrong max(score-2, 0)。
 ---
 
 # Quiz Vocabulary Word
@@ -105,8 +108,8 @@ score 只能通过 `answer` 更新:
 共 20 个，答对 16 个，答错 4 个，正确率 80%。
 
 错题：
-1. 你的答案：back；正确写法：book
-2. 你的答案：aple；正确写法：apple
+1. book — n. 书；本子 — 你写的是 back
+2. apple — n. 苹果 — 你写的是 aple
 ```
 
 ## 禁止事项
