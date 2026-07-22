@@ -15,7 +15,8 @@
     "delete": "deno task vocab delete",
 
     "check": "deno check scripts/vocab.ts",
-    "fmt": "deno fmt",
+    "test": "deno test --allow-read --allow-write --allow-run tests",
+    "fmt": "deno fmt scripts tests deno.jsonc",
     "lint": "deno lint"
   },
   "compilerOptions": {

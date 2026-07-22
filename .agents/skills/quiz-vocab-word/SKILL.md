@@ -9,6 +9,7 @@ description: >
   每道中文释义后必须附加首字母提示 (a••••) 和短语标记 [短语]，不得省略。
   展示中文释义让用户写出对应英文单词，每轮最多 5 个。非最后一轮只回复进度，
   最后一轮一次性展示全部错题。score：correct +1，wrong max(score-2, 0)。
+compatibility: Requires Deno and data/vocab.db; run from the vocab-agent repository root.
 ---
 
 # Quiz Vocabulary Word
@@ -19,15 +20,19 @@ description: >
 
 ## 执行命令
 
-在项目根目录运行:
+在包含 `deno.jsonc` 的项目根目录运行。不要从 skill 目录运行命令:
 
 ```bash
-deno task quiz --limit 5 --total <用户要求的总数>
-deno task quiz --limit 5 --session <sessionId>
-deno task answer <id> correct --session <sessionId> --input "<用户答案>"
-deno task answer <id> wrong --session <sessionId> --input "<用户答案>"
-deno task quiz-result --session <sessionId>
+deno task quiz --limit 5 --total N
+deno task quiz --limit 5 --session '<sessionId>'
+deno task answer '<id>' correct --session '<sessionId>' --input '<用户答案>'
+deno task answer '<id>' wrong --session '<sessionId>' --input '<用户答案>'
+deno task quiz-result --session '<sessionId>'
 ```
+
+所有动态参数必须作为单个 shell 参数传递。用户答案优先使用 POSIX 单引号；答案本身
+含单引号时，先结束单引号、写入转义后的单引号，再重新开始。例如 `don't` 应传为
+`'don'\''t'`。不要把用户原始答案不加引号地拼进命令。
 
 quiz 返回 JSON 包含 `displayBlock`（出题文案）和 `answers`（评分对照表）。
 
@@ -66,11 +71,9 @@ score 只能通过 `answer` 更新:
 
 ## 出题格式
 
-一次性给出 5 题。直接输出 `displayBlock` 的内容（已包含序号、释义、首字母提示和短语标记）：
+每轮最多给出 5 题。直接输出 `displayBlock` 的内容（已包含序号、释义、首字母提示和短语标记）：
 
 ```txt
-请写出对应的英文单词：
-
 1. n. 苹果；苹果树 (a••••)
 2. n. 书；本子；v. 预订 (b•••)
 3. n. 光；灯；adj. 轻的；浅色的 (l••••)
