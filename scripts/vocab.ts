@@ -700,6 +700,57 @@ function updateWord(word: string | undefined, meaning: string | undefined) {
   });
 }
 
+function deleteWord(word: string | undefined) {
+  if (!word) {
+    throw new Error("Usage: deno task delete <word>");
+  }
+
+  const displayWord = word.trim();
+  const db = openDb();
+
+  const existing = db
+    .prepare(
+      `
+      SELECT id, word, type, meaning, score, createdAt
+      FROM vocabulary_words
+      WHERE LOWER(word) = LOWER(?)
+    `,
+    )
+    .get(displayWord) as VocabWord | undefined;
+
+  if (!existing) {
+    throw new Error(`word not found: ${displayWord}`);
+  }
+
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    db.prepare(
+      `
+      DELETE FROM quiz_session_words
+      WHERE wordId = ?
+    `,
+    ).run(existing.id);
+
+    db.prepare(
+      `
+      DELETE FROM vocabulary_words
+      WHERE id = ?
+    `,
+    ).run(existing.id);
+
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+
+  output({
+    ok: true,
+    action: "deleted",
+    word: existing,
+  });
+}
+
 function listWords() {
   const db = openDb();
 
@@ -775,6 +826,11 @@ function main() {
 
     if (command === "update") {
       updateWord(args[0], args.slice(1).join(" "));
+      return;
+    }
+
+    if (command === "delete") {
+      deleteWord(args[0]);
       return;
     }
 
